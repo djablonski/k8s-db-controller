@@ -21,6 +21,11 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            schemaName:
+              type: string
+          required:
+          - schemaName
           type: object
         status:
           type: object
