@@ -27,6 +27,7 @@ import (
 type DatabaseSchemaSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	SchemaName string `json:"schemaName"`
 }
 
 // DatabaseSchemaStatus defines the observed state of DatabaseSchema
