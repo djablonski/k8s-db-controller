@@ -6,4 +6,4 @@ metadata:
   name: databaseschema-sample
 spec:
   # Add fields here
-  foo: bar
+  schemaName: mydbschema
