@@ -18,8 +18,11 @@ package databaseschema
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"reflect"
+
+	_ "github.com/go-sql-driver/mysql"
 
 	databasev1alpha1 "k8s-db-controller/pkg/apis/database/v1alpha1"
 
@@ -135,6 +138,13 @@ func (r *ReconcileDatabaseSchema) Reconcile(request reconcile.Request) (reconcil
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
+		// Generate database in MySQL
+		err := createDatabase(instance.Spec.SchemaName)
+		if err != nil {
+			log.Printf("Could not create database: %s", err)
+			return reconcile.Result{}, nil
+		}
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -153,4 +163,28 @@ func (r *ReconcileDatabaseSchema) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 	return reconcile.Result{}, nil
+}
+
+func createDatabase(name string) error {
+	db, err := sql.Open("mysql", "root:root@tcp(mysql.default.svc.cluster.local)/mysql")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	result, err := db.Exec("CREATE DATABASE IF NOT EXISTS " + name)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return err
+	} else {
+		log.Printf("Database %s successfully created.\n", name)
+		return nil
+	}
 }
