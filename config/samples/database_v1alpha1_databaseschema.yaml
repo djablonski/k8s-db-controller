@@ -1,0 +1,9 @@
+apiVersion: database.example.org/v1alpha1
+kind: DatabaseSchema
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: databaseschema-sample
+spec:
+  # Add fields here
+  foo: bar
