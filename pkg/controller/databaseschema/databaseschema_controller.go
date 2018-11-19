@@ -23,7 +23,6 @@ import (
 
 	databasev1alpha1 "k8s-db-controller/pkg/apis/database/v1alpha1"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +70,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create
 	// Uncomment watch a Deployment created by DatabaseSchema - change this for objects you create
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &databasev1alpha1.DatabaseSchema{},
 	})
@@ -95,7 +94,7 @@ type ReconcileDatabaseSchema struct {
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  The scaffolding writes
 // a Deployment as an example
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=database.example.org,resources=databaseschemas,verbs=get;list;watch;create;update;patch;delete
 func (r *ReconcileDatabaseSchema) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the DatabaseSchema instance
@@ -112,40 +111,27 @@ func (r *ReconcileDatabaseSchema) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// TODO(user): Change this to be the object type created by your controller
-	// Define the desired Deployment object
-	deploy := &appsv1.Deployment{
+	// Define the desired Secret object
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-deployment",
+			Name:      instance.Name + "-database-secret",
 			Namespace: instance.Namespace,
 		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"deployment": instance.Name + "-deployment"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"deployment": instance.Name + "-deployment"}},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx",
-						},
-					},
-				},
-			},
+		Data: map[string][]byte{
+			"database.name": []byte(instance.Spec.SchemaName),
 		},
 	}
-	if err := controllerutil.SetControllerReference(instance, deploy, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, secret, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// TODO(user): Change this for the object type created by your controller
-	// Check if the Deployment already exists
-	found := &appsv1.Deployment{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: deploy.Name, Namespace: deploy.Namespace}, found)
+	// Check if the Secret already exists
+	found := &corev1.Secret{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		log.Printf("Creating Deployment %s/%s\n", deploy.Namespace, deploy.Name)
-		err = r.Create(context.TODO(), deploy)
+		log.Printf("Creating Secret %s/%s\n", secret.Namespace, secret.Name)
+		err = r.Create(context.TODO(), secret)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -155,9 +141,12 @@ func (r *ReconcileDatabaseSchema) Reconcile(request reconcile.Request) (reconcil
 
 	// TODO(user): Change this for the object type created by your controller
 	// Update the found object and write the result back if there are any changes
-	if !reflect.DeepEqual(deploy.Spec, found.Spec) {
-		found.Spec = deploy.Spec
-		log.Printf("Updating Deployment %s/%s\n", deploy.Namespace, deploy.Name)
+	if !reflect.DeepEqual(secret.Data, found.Data) {
+		found.Name = secret.Name
+		found.Namespace = secret.Namespace
+		found.Data = secret.Data
+		found.ObjectMeta = secret.ObjectMeta
+		log.Printf("Updating Secret %s/%s\n", secret.Namespace, secret.Name)
 		err = r.Update(context.TODO(), found)
 		if err != nil {
 			return reconcile.Result{}, err
